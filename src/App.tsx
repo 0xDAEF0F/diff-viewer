@@ -1,5 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import "./App.css";
 import type { FileStatus, GitStatus, FileDiff } from "./types/git";
 import { Header } from "./components/Header";
@@ -13,6 +14,64 @@ function App() {
   const [selectedFile, setSelectedFile] = useState<FileStatus | null>(null);
   const [currentDiff, setCurrentDiff] = useState<FileDiff | null>(null);
   const [loadingDiff, setLoadingDiff] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+
+  // Refs for accessing current state in event handlers
+  const selectedDirectoryRef = useRef(selectedDirectory);
+  const selectedFileRef = useRef(selectedFile);
+  const autoRefreshRef = useRef(autoRefresh);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    selectedDirectoryRef.current = selectedDirectory;
+  }, [selectedDirectory]);
+
+  useEffect(() => {
+    selectedFileRef.current = selectedFile;
+  }, [selectedFile]);
+
+  useEffect(() => {
+    autoRefreshRef.current = autoRefresh;
+  }, [autoRefresh]);
+
+  // Listen for file changes from the backend
+  useEffect(() => {
+    const unlisten = listen("file-changed", async () => {
+      if (!autoRefreshRef.current || !selectedDirectoryRef.current) return;
+
+      try {
+        const status = await invoke<GitStatus>("get_git_status", {
+          path: selectedDirectoryRef.current,
+        });
+        setGitStatus(status);
+
+        // Re-fetch diff if a file is selected
+        if (selectedFileRef.current) {
+          const diff = await invoke<FileDiff>("get_file_diff", {
+            repoPath: selectedDirectoryRef.current,
+            filePath: selectedFileRef.current.path,
+            staged: selectedFileRef.current.staged,
+          });
+          setCurrentDiff(diff);
+        }
+      } catch (error) {
+        console.error("Error refreshing on file change:", error);
+      }
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
+
+  const handleAutoRefreshToggle = useCallback(async (enabled: boolean) => {
+    setAutoRefresh(enabled);
+    try {
+      await invoke("set_auto_refresh", { enabled });
+    } catch (error) {
+      console.error("Error setting auto refresh:", error);
+    }
+  }, []);
 
   const handleSelectDirectory = useCallback(async () => {
     try {
@@ -99,6 +158,8 @@ function App() {
           branch={null}
           onSelectDirectory={handleSelectDirectory}
           onRefresh={handleRefresh}
+          autoRefresh={autoRefresh}
+          onAutoRefreshToggle={handleAutoRefreshToggle}
         />
         <div className="empty-state">
           <h2>Not a Git Repository</h2>
@@ -117,6 +178,8 @@ function App() {
           branch={gitStatus.branch}
           onSelectDirectory={handleSelectDirectory}
           onRefresh={handleRefresh}
+          autoRefresh={autoRefresh}
+          onAutoRefreshToggle={handleAutoRefreshToggle}
         />
         <EmptyState type="no-changes" />
       </div>
@@ -130,6 +193,8 @@ function App() {
         branch={gitStatus.branch}
         onSelectDirectory={handleSelectDirectory}
         onRefresh={handleRefresh}
+        autoRefresh={autoRefresh}
+        onAutoRefreshToggle={handleAutoRefreshToggle}
       />
       <div className="main-content">
         <FileList
