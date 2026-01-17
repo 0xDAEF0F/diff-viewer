@@ -1,0 +1,184 @@
+use git2::{Delta, DiffOptions, Repository, StatusOptions};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileStatus {
+    pub path: String,
+    pub status: String,
+    pub staged: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitStatus {
+    pub is_repo: bool,
+    pub branch: Option<String>,
+    pub files: Vec<FileStatus>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileDiff {
+    pub path: String,
+    pub diff: String,
+    pub is_new: bool,
+    pub is_deleted: bool,
+}
+
+pub fn get_repository_status(path: &str) -> Result<GitStatus, String> {
+    let repo = match Repository::open(path) {
+        Ok(r) => r,
+        Err(_) => {
+            return Ok(GitStatus {
+                is_repo: false,
+                branch: None,
+                files: vec![],
+            });
+        }
+    };
+
+    let branch = repo
+        .head()
+        .ok()
+        .and_then(|h| h.shorthand().map(|s| s.to_string()));
+
+    let mut opts = StatusOptions::new();
+    opts.include_untracked(true)
+        .recurse_untracked_dirs(true)
+        .include_ignored(false);
+
+    let statuses = repo.statuses(Some(&mut opts)).map_err(|e| e.to_string())?;
+
+    let mut files = Vec::new();
+
+    for entry in statuses.iter() {
+        let path = entry.path().unwrap_or("").to_string();
+        let status = entry.status();
+
+        // Check for staged changes
+        if status.is_index_new() {
+            files.push(FileStatus {
+                path: path.clone(),
+                status: "added".to_string(),
+                staged: true,
+            });
+        } else if status.is_index_modified() {
+            files.push(FileStatus {
+                path: path.clone(),
+                status: "modified".to_string(),
+                staged: true,
+            });
+        } else if status.is_index_deleted() {
+            files.push(FileStatus {
+                path: path.clone(),
+                status: "deleted".to_string(),
+                staged: true,
+            });
+        } else if status.is_index_renamed() {
+            files.push(FileStatus {
+                path: path.clone(),
+                status: "renamed".to_string(),
+                staged: true,
+            });
+        }
+
+        // Check for unstaged changes (working tree)
+        if status.is_wt_modified() {
+            files.push(FileStatus {
+                path: path.clone(),
+                status: "modified".to_string(),
+                staged: false,
+            });
+        } else if status.is_wt_deleted() {
+            files.push(FileStatus {
+                path: path.clone(),
+                status: "deleted".to_string(),
+                staged: false,
+            });
+        } else if status.is_wt_renamed() {
+            files.push(FileStatus {
+                path: path.clone(),
+                status: "renamed".to_string(),
+                staged: false,
+            });
+        } else if status.is_wt_new() {
+            files.push(FileStatus {
+                path: path.clone(),
+                status: "untracked".to_string(),
+                staged: false,
+            });
+        }
+    }
+
+    Ok(GitStatus {
+        is_repo: true,
+        branch,
+        files,
+    })
+}
+
+pub fn get_file_diff(repo_path: &str, file_path: &str, staged: bool) -> Result<FileDiff, String> {
+    let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
+
+    let mut diff_opts = DiffOptions::new();
+    diff_opts.pathspec(file_path);
+
+    let diff = if staged {
+        // Staged: diff between HEAD and index
+        let head_tree = repo
+            .head()
+            .ok()
+            .and_then(|h| h.peel_to_tree().ok());
+
+        repo.diff_tree_to_index(head_tree.as_ref(), None, Some(&mut diff_opts))
+            .map_err(|e| e.to_string())?
+    } else {
+        // Unstaged: diff between index and working directory
+        repo.diff_index_to_workdir(None, Some(&mut diff_opts))
+            .map_err(|e| e.to_string())?
+    };
+
+    let mut diff_text = String::new();
+    let mut is_new = false;
+    let mut is_deleted = false;
+
+    diff.print(git2::DiffFormat::Patch, |delta, _hunk, line| {
+        match delta.status() {
+            Delta::Added => is_new = true,
+            Delta::Deleted => is_deleted = true,
+            _ => {}
+        }
+
+        let prefix = match line.origin() {
+            '+' | '-' | ' ' => format!("{}", line.origin()),
+            _ => String::new(),
+        };
+
+        if let Ok(content) = std::str::from_utf8(line.content()) {
+            diff_text.push_str(&prefix);
+            diff_text.push_str(content);
+        }
+
+        true
+    })
+    .map_err(|e| e.to_string())?;
+
+    // For untracked files, read the file content and create a pseudo-diff
+    if diff_text.is_empty() {
+        let full_path = std::path::Path::new(repo_path).join(file_path);
+        if full_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&full_path) {
+                diff_text = content
+                    .lines()
+                    .map(|l| format!("+{}\n", l))
+                    .collect();
+                is_new = true;
+            }
+        }
+    }
+
+    Ok(FileDiff {
+        path: file_path.to_string(),
+        diff: diff_text,
+        is_new,
+        is_deleted,
+    })
+}
