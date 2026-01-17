@@ -16,28 +16,42 @@ export function Header({
   onAutoRefreshToggle,
 }: HeaderProps) {
   return (
-    <header className="header">
-      <button className="btn btn-primary" onClick={onSelectDirectory}>
+    <header className="flex items-center gap-4 px-4 py-3 bg-[var(--bg-secondary)] border-b border-[var(--border-color)] h-14 shrink-0">
+      <button
+        className="px-4 py-2 bg-[var(--accent-color)] text-white rounded-md text-sm font-medium hover:opacity-90 transition-opacity"
+        onClick={onSelectDirectory}
+      >
         Open Repository
       </button>
       {repoPath && (
         <>
-          <div className="repo-info">
-            <span className="repo-path" title={repoPath}>
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <span
+              className="font-semibold text-[var(--text-primary)] overflow-hidden text-ellipsis whitespace-nowrap"
+              title={repoPath}
+            >
               {repoPath.split("/").pop() || repoPath}
             </span>
-            {branch && <span className="branch-name">{branch}</span>}
+            {branch && (
+              <span className="px-2.5 py-1 bg-[var(--bg-tertiary)] rounded-full text-xs text-[var(--text-secondary)]">
+                {branch}
+              </span>
+            )}
           </div>
-          <div className="header-actions">
-            <label className="auto-refresh-toggle">
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)] cursor-pointer select-none">
               <input
                 type="checkbox"
+                className="w-3.5 h-3.5 cursor-pointer accent-[var(--accent-color)]"
                 checked={autoRefresh}
                 onChange={(e) => onAutoRefreshToggle(e.target.checked)}
               />
               Auto-refresh
             </label>
-            <button className="btn btn-secondary" onClick={onRefresh}>
+            <button
+              className="px-4 py-2 bg-[var(--bg-tertiary)] text-[var(--text-primary)] rounded-md text-sm font-medium hover:opacity-90 transition-opacity"
+              onClick={onRefresh}
+            >
               Refresh
             </button>
           </div>

@@ -9,7 +9,9 @@ interface FileListProps {
 
 export function FileList({ files, selectedFile, onFileSelect }: FileListProps) {
   const stagedFiles = files.filter((f) => f.staged);
-  const unstagedFiles = files.filter((f) => !f.staged && f.status !== "untracked");
+  const unstagedFiles = files.filter(
+    (f) => !f.staged && f.status !== "untracked",
+  );
   const untrackedFiles = files.filter((f) => f.status === "untracked");
 
   const renderSection = (title: string, sectionFiles: FileStatus[]) => {
