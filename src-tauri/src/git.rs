@@ -147,13 +147,24 @@ pub fn get_file_diff(repo_path: &str, file_path: &str, staged: bool) -> Result<F
             _ => {}
         }
 
-        let prefix = match line.origin() {
-            '+' | '-' | ' ' => format!("{}", line.origin()),
-            _ => String::new(),
-        };
+        // Include line origin character for content lines
+        let origin = line.origin();
+        match origin {
+            '+' | '-' | ' ' => {
+                diff_text.push(origin);
+            }
+            // File headers and hunk headers - include content as-is
+            'F' | 'H' => {}
+            // Binary file marker
+            'B' => {}
+            // Context line end (no newline at EOF marker)
+            '>' | '<' | '=' => {
+                diff_text.push_str("\\ ");
+            }
+            _ => {}
+        }
 
         if let Ok(content) = std::str::from_utf8(line.content()) {
-            diff_text.push_str(&prefix);
             diff_text.push_str(content);
         }
 

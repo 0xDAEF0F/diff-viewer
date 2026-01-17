@@ -10,8 +10,6 @@ Git Diff Viewer is a desktop application for visualizing Git changes, built with
 
 ```bash
 bun install          # Install dependencies
-bun run dev          # Start Vite dev server (port 1420)
-bun run tauri dev    # Start Tauri app with dev server
 ```
 
 Development requires running both `bun run dev` and `bun run tauri dev` in separate terminals.
@@ -34,3 +32,4 @@ Development requires running both `bun run dev` and `bun run tauri dev` in separ
 
 - use tailwindcss whenever possible
 - do not put coauthourship when creating git commits
+- do not run the development server just compile with tsc and cargo to check things are compiling

@@ -55,17 +55,12 @@ export function DiffViewer({ diff, loading }: DiffViewerProps) {
 }
 
 function createUnifiedDiff(diff: FileDiff): string {
-  const lines = diff.diff.split("\n");
-  let addCount = 0;
-  let removeCount = 0;
-
-  // Count additions and removals
-  for (const line of lines) {
-    if (line.startsWith("+")) addCount++;
-    else if (line.startsWith("-")) removeCount++;
+  // If diff already has full unified diff format, use it directly
+  if (diff.diff.startsWith("diff --git")) {
+    return diff.diff;
   }
 
-  // Build unified diff header
+  // Build unified diff header (file-level headers only)
   const header = [
     `diff --git a/${diff.path} b/${diff.path}`,
     diff.is_new
@@ -75,10 +70,25 @@ function createUnifiedDiff(diff: FileDiff): string {
         : "",
     `--- ${diff.is_new ? "/dev/null" : `a/${diff.path}`}`,
     `+++ ${diff.is_deleted ? "/dev/null" : `b/${diff.path}`}`,
-    `@@ -1,${removeCount || lines.length} +1,${addCount || lines.length} @@`,
   ]
     .filter(Boolean)
     .join("\n");
 
-  return `${header}\n${diff.diff}`;
+  // If the diff already has hunk headers from git2, use them directly
+  if (diff.diff.includes("@@")) {
+    return `${header}\n${diff.diff}`;
+  }
+
+  // Otherwise, create a single hunk for the entire content (for untracked files)
+  const lines = diff.diff.split("\n").filter((l) => l.length > 0);
+  let addCount = 0;
+  let removeCount = 0;
+
+  for (const line of lines) {
+    if (line.startsWith("+")) addCount++;
+    else if (line.startsWith("-")) removeCount++;
+  }
+
+  const hunkHeader = `@@ -1,${removeCount} +1,${addCount} @@`;
+  return `${header}\n${hunkHeader}\n${diff.diff}`;
 }
