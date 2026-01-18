@@ -1,4 +1,4 @@
-import type { Token, TokenType } from "../types/highlight";
+import type { Token, TokenType, LineTokenMap } from "../types/highlight";
 import type { DiffLine } from "../types/diff";
 import { getWasmPath } from "./languageMap";
 
@@ -170,67 +170,173 @@ function collectTokens(node: any, tokens: Token[]): void {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function tokenizeLine(tree: any, originalText: string): Token[] {
-  const rawTokens: Token[] = [];
-  collectTokens(tree.rootNode, rawTokens);
-  rawTokens.sort((a, b) => a.start - b.start);
+function buildLineOffsets(content: string): number[] {
+  const offsets: number[] = [0];
+  for (let i = 0; i < content.length; i++) {
+    if (content[i] === "\n") {
+      offsets.push(i + 1);
+    }
+  }
+  return offsets;
+}
 
-  // Fill in gaps (whitespace) between tokens
-  const tokens: Token[] = [];
-  let lastEnd = 0;
+function findLineForOffset(offsets: number[], offset: number): number {
+  let low = 0;
+  let high = offsets.length - 1;
+  while (low < high) {
+    const mid = Math.floor((low + high + 1) / 2);
+    if (offsets[mid] <= offset) {
+      low = mid;
+    } else {
+      high = mid - 1;
+    }
+  }
+  return low;
+}
 
-  for (const token of rawTokens) {
-    if (token.start > lastEnd) {
-      // There's a gap - add whitespace token
-      tokens.push({
+function mapTokensToLines(content: string, tokens: Token[]): LineTokenMap {
+  const lineOffsets = buildLineOffsets(content);
+  const lineTokenMap: LineTokenMap = new Map();
+  const lines = content.split("\n");
+
+  // Initialize empty arrays for all lines (1-indexed)
+  for (let i = 0; i < lines.length; i++) {
+    lineTokenMap.set(i + 1, []);
+  }
+
+  for (const token of tokens) {
+    const startLine = findLineForOffset(lineOffsets, token.start);
+    const endLine = findLineForOffset(lineOffsets, Math.max(token.start, token.end - 1));
+
+    if (startLine === endLine) {
+      // Token is on a single line
+      const lineStart = lineOffsets[startLine];
+      const lineTokens = lineTokenMap.get(startLine + 1) ?? [];
+      lineTokens.push({
+        type: token.type,
+        content: token.content,
+        start: token.start - lineStart,
+        end: token.end - lineStart,
+      });
+      lineTokenMap.set(startLine + 1, lineTokens);
+    } else {
+      // Token spans multiple lines - split it
+      for (let line = startLine; line <= endLine; line++) {
+        const lineStart = lineOffsets[line];
+        const lineEnd = line + 1 < lineOffsets.length ? lineOffsets[line + 1] - 1 : content.length;
+        const tokenStartInFile = Math.max(token.start, lineStart);
+        const tokenEndInFile = Math.min(token.end, lineEnd + 1);
+        const tokenContent = content.slice(tokenStartInFile, tokenEndInFile);
+
+        if (tokenContent.length > 0) {
+          const lineTokens = lineTokenMap.get(line + 1) ?? [];
+          lineTokens.push({
+            type: token.type,
+            content: tokenContent,
+            start: tokenStartInFile - lineStart,
+            end: tokenEndInFile - lineStart,
+          });
+          lineTokenMap.set(line + 1, lineTokens);
+        }
+      }
+    }
+  }
+
+  // Sort tokens by start position and fill gaps
+  for (const [lineNum, lineTokens] of lineTokenMap) {
+    lineTokens.sort((a, b) => a.start - b.start);
+
+    const lineContent = lines[lineNum - 1] ?? "";
+    const filledTokens: Token[] = [];
+    let lastEnd = 0;
+
+    for (const token of lineTokens) {
+      if (token.start > lastEnd) {
+        filledTokens.push({
+          type: "default",
+          content: lineContent.slice(lastEnd, token.start),
+          start: lastEnd,
+          end: token.start,
+        });
+      }
+      filledTokens.push(token);
+      lastEnd = token.end;
+    }
+
+    if (lastEnd < lineContent.length) {
+      filledTokens.push({
         type: "default",
-        content: originalText.slice(lastEnd, token.start),
+        content: lineContent.slice(lastEnd),
         start: lastEnd,
-        end: token.start,
+        end: lineContent.length,
       });
     }
-    tokens.push(token);
-    lastEnd = token.end;
+
+    lineTokenMap.set(lineNum, filledTokens);
   }
 
-  // Add any trailing content
-  if (lastEnd < originalText.length) {
-    tokens.push({
-      type: "default",
-      content: originalText.slice(lastEnd),
-      start: lastEnd,
-      end: originalText.length,
-    });
+  return lineTokenMap;
+}
+
+async function parseFullFile(content: string, language: string): Promise<LineTokenMap> {
+  if (!parserInstance) {
+    await initHighlighter();
   }
 
-  return tokens;
+  const lang = await loadLanguage(language);
+  parserInstance.setLanguage(lang);
+
+  const tree = parserInstance.parse(content);
+  if (!tree) {
+    return new Map();
+  }
+
+  const tokens: Token[] = [];
+  collectTokens(tree.rootNode, tokens);
+  tokens.sort((a, b) => a.start - b.start);
+
+  return mapTokensToLines(content, tokens);
 }
 
 export async function highlightLines(
   lines: DiffLine[],
-  language: string
+  language: string,
+  oldContent: string | null,
+  newContent: string | null
 ): Promise<DiffLine[]> {
   if (!parserInstance) {
     await initHighlighter();
   }
 
   try {
-    const lang = await loadLanguage(language);
-    parserInstance.setLanguage(lang);
+    // Parse full files to get token maps
+    const oldTokenMap = oldContent ? await parseFullFile(oldContent, language) : null;
+    const newTokenMap = newContent ? await parseFullFile(newContent, language) : null;
 
     return lines.map((line) => {
       if (line.type === "meta") return line;
 
-      const tree = parserInstance.parse(line.content);
-      if (!tree) return line;
+      let tokens: Token[] | undefined;
+      const { oldLine, newLine } = line;
 
-      const tokens = tokenizeLine(tree, line.content);
+      if (line.type === "deleted" && oldTokenMap && oldLine !== undefined) {
+        tokens = oldTokenMap.get(oldLine);
+      } else if (line.type === "added" && newTokenMap && newLine !== undefined) {
+        tokens = newTokenMap.get(newLine);
+      } else if (line.type === "context") {
+        // Context lines exist in both - prefer new, fallback to old
+        if (newTokenMap && newLine !== undefined) {
+          tokens = newTokenMap.get(newLine);
+        } else if (oldTokenMap && oldLine !== undefined) {
+          tokens = oldTokenMap.get(oldLine);
+        }
+      }
 
-      return {
-        ...line,
-        tokens,
-      };
+      if (tokens && tokens.length > 0) {
+        return { ...line, tokens };
+      }
+
+      return line;
     });
   } catch (error) {
     console.error("Highlighting failed:", error);

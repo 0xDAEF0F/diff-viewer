@@ -15,4 +15,6 @@ export interface FileDiff {
   diff: string;
   is_new: boolean;
   is_deleted: boolean;
+  old_content: string | null;
+  new_content: string | null;
 }

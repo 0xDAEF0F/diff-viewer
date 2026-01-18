@@ -18,3 +18,5 @@ export interface Token {
   start: number;
   end: number;
 }
+
+export type LineTokenMap = Map<number, Token[]>;

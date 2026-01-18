@@ -38,7 +38,12 @@ export function DiffViewer({ diff }: DiffViewerProps) {
       setIsHighlighting(true);
       try {
         await initHighlighter();
-        const highlighted = await highlightLines(parsedLines, language);
+        const highlighted = await highlightLines(
+          parsedLines,
+          language,
+          diff?.old_content ?? null,
+          diff?.new_content ?? null
+        );
         if (!cancelled) {
           setHighlightedLines(highlighted);
         }
@@ -59,7 +64,7 @@ export function DiffViewer({ diff }: DiffViewerProps) {
     return () => {
       cancelled = true;
     };
-  }, [parsedLines, language]);
+  }, [parsedLines, language, diff?.old_content, diff?.new_content]);
 
   if (!diff) {
     return (

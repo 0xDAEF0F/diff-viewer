@@ -21,6 +21,8 @@ pub struct FileDiff {
     pub diff: String,
     pub is_new: bool,
     pub is_deleted: bool,
+    pub old_content: Option<String>,
+    pub new_content: Option<String>,
 }
 
 pub fn get_repository_status(path: &str) -> Result<GitStatus, String> {
@@ -115,6 +117,26 @@ pub fn get_repository_status(path: &str) -> Result<GitStatus, String> {
     })
 }
 
+fn get_blob_content_from_head(repo: &Repository, file_path: &str) -> Option<String> {
+    let head = repo.head().ok()?;
+    let tree = head.peel_to_tree().ok()?;
+    let entry = tree.get_path(std::path::Path::new(file_path)).ok()?;
+    let blob = entry.to_object(repo).ok()?.peel_to_blob().ok()?;
+    std::str::from_utf8(blob.content()).ok().map(|s| s.to_string())
+}
+
+fn get_blob_content_from_index(repo: &Repository, file_path: &str) -> Option<String> {
+    let index = repo.index().ok()?;
+    let entry = index.get_path(std::path::Path::new(file_path), 0)?;
+    let blob = repo.find_blob(entry.id).ok()?;
+    std::str::from_utf8(blob.content()).ok().map(|s| s.to_string())
+}
+
+fn get_file_content_from_workdir(repo_path: &str, file_path: &str) -> Option<String> {
+    let full_path = std::path::Path::new(repo_path).join(file_path);
+    std::fs::read_to_string(full_path).ok()
+}
+
 pub fn get_file_diff(repo_path: &str, file_path: &str, staged: bool) -> Result<FileDiff, String> {
     let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
 
@@ -186,10 +208,37 @@ pub fn get_file_diff(repo_path: &str, file_path: &str, staged: bool) -> Result<F
         }
     }
 
+    // Get file contents for full-file syntax highlighting
+    let (old_content, new_content) = if staged {
+        // Staged changes: old=HEAD, new=index
+        let old = get_blob_content_from_head(&repo, file_path);
+        let new = get_blob_content_from_index(&repo, file_path);
+        (old, new)
+    } else {
+        // Unstaged changes: old=index (or HEAD if not in index), new=workdir
+        let old = get_blob_content_from_index(&repo, file_path)
+            .or_else(|| get_blob_content_from_head(&repo, file_path));
+        let new = get_file_content_from_workdir(repo_path, file_path);
+        (old, new)
+    };
+
+    // Handle special cases
+    let (old_content, new_content) = if is_new {
+        // New file: no old content
+        (None, new_content.or_else(|| get_file_content_from_workdir(repo_path, file_path)))
+    } else if is_deleted {
+        // Deleted file: no new content
+        (old_content, None)
+    } else {
+        (old_content, new_content)
+    };
+
     Ok(FileDiff {
         path: file_path.to_string(),
         diff: diff_text,
         is_new,
         is_deleted,
+        old_content,
+        new_content,
     })
 }
