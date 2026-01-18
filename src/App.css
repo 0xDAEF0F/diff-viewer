@@ -1,507 +1,181 @@
 @import "tailwindcss";
 
 @layer base {
-  :root {
-    --bg-primary: #ffffff;
-    --bg-secondary: #f5f5f5;
-    --bg-tertiary: #e8e8e8;
-    --text-primary: #1a1a1a;
-    --text-secondary: #666666;
-    --border-color: #e0e0e0;
-    --accent-color: #0066cc;
-    --status-added: #28a745;
-    --status-modified: #ffc107;
-    --status-deleted: #dc3545;
-    --status-untracked: #6c757d;
-    --header-height: 56px;
-  }
-
-  @media (prefers-color-scheme: dark) {
     :root {
-      --bg-primary: #1e1e1e;
-      --bg-secondary: #252526;
-      --bg-tertiary: #333333;
-      --text-primary: #e0e0e0;
-      --text-secondary: #a0a0a0;
-      --border-color: #404040;
-      --accent-color: #4da6ff;
+        --bg-primary: #ffffff;
+        --bg-secondary: #f5f5f5;
+        --bg-tertiary: #e8e8e8;
+        --text-primary: #1a1a1a;
+        --text-secondary: #666666;
+        --border-color: #e0e0e0;
+        --accent-color: #0066cc;
+        --status-added: #28a745;
+        --status-modified: #ffc107;
+        --status-deleted: #dc3545;
+        --status-untracked: #6c757d;
     }
-  }
 
-  html,
-  body,
-  #root {
-    height: 100%;
-    width: 100%;
-  }
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #252526;
+            --bg-tertiary: #333333;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --border-color: #404040;
+            --accent-color: #4da6ff;
+        }
+    }
 
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
-      Ubuntu, Cantarell, sans-serif;
-    font-size: 14px;
-    color: var(--text-primary);
-    background-color: var(--bg-primary);
-  }
+    html,
+    body,
+    #root {
+        height: 100%;
+        width: 100%;
+    }
+
+    body {
+        font-family:
+            -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+            Ubuntu, Cantarell, sans-serif;
+        font-size: 14px;
+        color: var(--text-primary);
+        background-color: var(--bg-primary);
+    }
 }
 
 @layer components {
-  .app {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    overflow: hidden;
-  }
-
-  /* Header */
-  .header {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 12px 16px;
-    background-color: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-color);
-    height: var(--header-height);
-    flex-shrink: 0;
-  }
-
-  .repo-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .repo-path {
-    font-weight: 600;
-    color: var(--text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .branch-name {
-    padding: 4px 10px;
-    background-color: var(--bg-tertiary);
-    border-radius: 12px;
-    font-size: 12px;
-    color: var(--text-secondary);
-  }
-
-  .header-actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .auto-refresh-toggle {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    color: var(--text-secondary);
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .auto-refresh-toggle input[type="checkbox"] {
-    width: 14px;
-    height: 14px;
-    cursor: pointer;
-    accent-color: var(--accent-color);
-  }
-
-  /* Buttons */
-  .btn {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color 0.15s, opacity 0.15s;
-  }
-
-  .btn:hover {
-    opacity: 0.9;
-  }
-
-  .btn:active {
-    opacity: 0.8;
-  }
-
-  .btn-primary {
-    background-color: var(--accent-color);
-    color: white;
-  }
-
-  .btn-secondary {
-    background-color: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
-
-  /* Main Content Layout */
-  .main-content {
-    display: grid;
-    grid-template-columns: 280px 1fr;
-    height: calc(100% - var(--header-height));
-    overflow: hidden;
-  }
-
-  /* File List */
-  .file-list {
-    background-color: var(--bg-secondary);
-    border-right: 1px solid var(--border-color);
-    overflow-y: auto;
-    overflow-x: hidden;
-  }
-
-  .file-section {
-    padding: 8px 0;
-  }
-
-  .section-header {
-    padding: 8px 16px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: var(--text-secondary);
-    letter-spacing: 0.5px;
-  }
-
-  .file-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 16px;
-    cursor: pointer;
-    transition: background-color 0.1s;
-  }
-
-  .file-item:hover {
-    background-color: var(--bg-tertiary);
-  }
-
-  .file-item.selected {
-    background-color: var(--accent-color);
-    color: white;
-  }
-
-  .file-item.selected .status-icon {
-    color: white;
-  }
-
-  .status-icon {
-    width: 16px;
-    height: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    font-weight: 700;
-    font-family: monospace;
-    flex-shrink: 0;
-  }
-
-  .status-icon.status-added {
-    color: var(--status-added);
-  }
-
-  .status-icon.status-modified {
-    color: var(--status-modified);
-  }
-
-  .status-icon.status-deleted {
-    color: var(--status-deleted);
-  }
-
-  .status-icon.status-renamed {
-    color: var(--accent-color);
-  }
-
-  .status-icon.status-untracked {
-    color: var(--status-untracked);
-  }
-
-  .file-path {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 13px;
-  }
-
-  /* Diff Viewer */
-  .diff-viewer {
-    overflow: auto;
-    background-color: var(--bg-primary);
-  }
-
-  .diff-viewer.diff-empty,
-  .diff-viewer.diff-loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-secondary);
-    gap: 12px;
-  }
-
-  .loading-spinner {
-    width: 24px;
-    height: 24px;
-    border: 3px solid var(--border-color);
-    border-top-color: var(--accent-color);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
+    .app {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
     }
-  }
 
-  /* Empty State */
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    gap: 16px;
-    color: var(--text-secondary);
-    text-align: center;
-    padding: 40px;
-  }
+    /* Main Content Layout */
+    .main-content {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        flex: 1;
+        overflow: hidden;
+    }
 
-  .empty-state h2 {
-    color: var(--text-primary);
-    font-weight: 600;
-  }
+    /* File List */
+    .file-list {
+        background-color: var(--bg-secondary);
+        border-right: 1px solid var(--border-color);
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
 
-  .empty-state p {
-    max-width: 400px;
-  }
+    .file-section {
+        padding: 8px 0;
+    }
 
-  /* diff2html overrides */
-  .d2h-wrapper {
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
-      "Liberation Mono", monospace;
-    font-size: 12px;
-  }
+    .section-header {
+        padding: 8px 16px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        letter-spacing: 0.5px;
+    }
 
-  .d2h-file-header {
-    display: none;
-  }
+    .file-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 16px;
+        cursor: pointer;
+        transition: background-color 0.1s;
+    }
 
-  .d2h-file-wrapper {
-    border: none;
-    border-radius: 0;
-    margin-bottom: 0;
-  }
+    .file-item:hover {
+        background-color: var(--bg-tertiary);
+    }
 
-  .d2h-file-diff {
-    overflow: visible;
-  }
+    .file-item.selected {
+        background-color: var(--accent-color);
+        color: white;
+    }
 
-  .d2h-files-diff {
-    display: block;
-  }
+    .file-item.selected .status-icon {
+        color: white;
+    }
 
-  /* Side-by-side layout */
-  .d2h-file-side-diff {
-    display: inline-block;
-    width: 50%;
-    vertical-align: top;
-    margin-bottom: 0;
-  }
+    .status-icon {
+        width: 16px;
+        height: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 700;
+        font-family: monospace;
+        flex-shrink: 0;
+    }
 
-  .d2h-diff-table {
-    font-size: 12px;
-    width: 100%;
-    border-collapse: collapse;
-  }
+    .status-icon.status-added {
+        color: var(--status-added);
+    }
 
-  .d2h-code-line,
-  .d2h-code-side-line {
-    padding: 0 8px;
-    white-space: pre;
-  }
+    .status-icon.status-modified {
+        color: var(--status-modified);
+    }
 
-  .d2h-code-linenumber,
-  .d2h-code-side-linenumber {
-    cursor: default;
-    user-select: none;
-    text-align: right;
-    padding: 0 8px;
-  }
+    .status-icon.status-deleted {
+        color: var(--status-deleted);
+    }
 
-  .d2h-info {
-    padding: 4px 12px;
-  }
+    .status-icon.status-renamed {
+        color: var(--accent-color);
+    }
 
-  .d2h-emptyplaceholder,
-  .d2h-code-side-emptyplaceholder {
-    width: 100%;
-  }
-}
+    .status-icon.status-untracked {
+        color: var(--status-untracked);
+    }
 
-/* Light mode colors for diff2html */
-@layer components {
-  .d2h-wrapper,
-  .d2h-file-wrapper,
-  .d2h-diff-table {
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
-  }
+    .file-path {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 13px;
+    }
 
-  .d2h-code-line,
-  .d2h-code-side-line,
-  .d2h-code-line-ctn {
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
-  }
+    /* Diff Viewer */
+    .diff-viewer {
+        overflow: auto;
+        background-color: var(--bg-primary);
+    }
 
-  .d2h-code-linenumber,
-  .d2h-code-side-linenumber {
-    background-color: var(--bg-secondary);
-    color: var(--text-secondary);
-    border-right: 1px solid var(--border-color);
-  }
+    .diff-viewer.diff-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-secondary);
+        gap: 12px;
+    }
 
-  .d2h-info {
-    background-color: var(--bg-secondary);
-    color: var(--text-secondary);
-    border-color: var(--border-color);
-  }
+    /* Empty State */
+    .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        gap: 16px;
+        color: var(--text-secondary);
+        text-align: center;
+        padding: 40px;
+    }
 
-  .d2h-emptyplaceholder,
-  .d2h-code-side-emptyplaceholder {
-    background-color: var(--bg-secondary);
-    border-color: var(--border-color);
-  }
+    .empty-state h2 {
+        color: var(--text-primary);
+        font-weight: 600;
+    }
 
-  /* Deletion styling */
-  .d2h-del {
-    background-color: #ffeef0;
-  }
-
-  .d2h-del.d2h-change {
-    background-color: #ffeef0;
-  }
-
-  .d2h-del .d2h-code-line-ctn,
-  .d2h-del.d2h-code-side-line,
-  .d2h-del .d2h-code-side-line {
-    background-color: #ffeef0;
-    color: var(--text-primary);
-  }
-
-  .d2h-code-line del,
-  .d2h-code-side-line del {
-    background-color: #ffc0c0;
-    text-decoration: none;
-  }
-
-  /* Addition styling */
-  .d2h-ins {
-    background-color: #e6ffec;
-  }
-
-  .d2h-ins.d2h-change {
-    background-color: #e6ffec;
-  }
-
-  .d2h-ins .d2h-code-line-ctn,
-  .d2h-ins.d2h-code-side-line,
-  .d2h-ins .d2h-code-side-line {
-    background-color: #e6ffec;
-    color: var(--text-primary);
-  }
-
-  .d2h-code-line ins,
-  .d2h-code-side-line ins {
-    background-color: #acf2bd;
-    text-decoration: none;
-  }
-}
-
-/* Dark mode colors for diff2html */
-@media (prefers-color-scheme: dark) {
-  .d2h-wrapper,
-  .d2h-file-wrapper,
-  .d2h-diff-table {
-    background-color: var(--bg-primary) !important;
-    color: var(--text-primary) !important;
-  }
-
-  .d2h-code-line,
-  .d2h-code-side-line,
-  .d2h-code-line-ctn {
-    background-color: var(--bg-primary) !important;
-    color: var(--text-primary) !important;
-  }
-
-  .d2h-code-linenumber,
-  .d2h-code-side-linenumber {
-    background-color: var(--bg-secondary) !important;
-    color: var(--text-secondary) !important;
-    border-color: var(--border-color) !important;
-  }
-
-  .d2h-info {
-    background-color: var(--bg-secondary) !important;
-    color: var(--text-secondary) !important;
-    border-color: var(--border-color) !important;
-  }
-
-  .d2h-emptyplaceholder,
-  .d2h-code-side-emptyplaceholder {
-    background-color: var(--bg-secondary) !important;
-    border-color: var(--border-color) !important;
-  }
-
-  /* Dark mode deletion styling */
-  .d2h-del {
-    background-color: rgba(248, 81, 73, 0.15) !important;
-  }
-
-  .d2h-del.d2h-change {
-    background-color: rgba(248, 81, 73, 0.15) !important;
-  }
-
-  .d2h-del .d2h-code-line-ctn,
-  .d2h-del.d2h-code-side-line,
-  .d2h-del .d2h-code-side-line {
-    background-color: rgba(248, 81, 73, 0.15) !important;
-    color: var(--text-primary) !important;
-  }
-
-  .d2h-code-line del,
-  .d2h-code-side-line del {
-    background-color: rgba(248, 81, 73, 0.4) !important;
-    color: var(--text-primary) !important;
-  }
-
-  /* Dark mode addition styling */
-  .d2h-ins {
-    background-color: rgba(63, 185, 80, 0.15) !important;
-  }
-
-  .d2h-ins.d2h-change {
-    background-color: rgba(63, 185, 80, 0.15) !important;
-  }
-
-  .d2h-ins .d2h-code-line-ctn,
-  .d2h-ins.d2h-code-side-line,
-  .d2h-ins .d2h-code-side-line {
-    background-color: rgba(63, 185, 80, 0.15) !important;
-    color: var(--text-primary) !important;
-  }
-
-  .d2h-code-line ins,
-  .d2h-code-side-line ins {
-    background-color: rgba(63, 185, 80, 0.4) !important;
-    color: var(--text-primary) !important;
-  }
+    .empty-state p {
+        max-width: 400px;
+    }
 }
