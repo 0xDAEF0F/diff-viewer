@@ -84,10 +84,32 @@ function App() {
         setCurrentDiff(null);
         const status = await invoke<GitStatus>("get_git_status", { path });
         setGitStatus(status);
+        localStorage.setItem("lastDirectory", path);
       }
     } catch (error) {
       console.error("Error selecting directory:", error);
     }
+  }, []);
+
+  // Restore last directory on mount
+  useEffect(() => {
+    const restore = async () => {
+      const savedPath = localStorage.getItem("lastDirectory");
+      if (!savedPath) return;
+
+      try {
+        await invoke("start_file_watcher", { path: savedPath });
+        setSelectedDirectory(savedPath);
+        const status = await invoke<GitStatus>("get_git_status", {
+          path: savedPath,
+        });
+        setGitStatus(status);
+      } catch (error) {
+        localStorage.removeItem("lastDirectory");
+        console.error("Error restoring directory:", error);
+      }
+    };
+    restore();
   }, []);
 
   const handleRefresh = useCallback(async () => {
