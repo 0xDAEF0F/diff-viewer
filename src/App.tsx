@@ -15,7 +15,6 @@ function App() {
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileStatus | null>(null);
   const [currentDiff, setCurrentDiff] = useState<FileDiff | null>(null);
-  const [loadingDiff, setLoadingDiff] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
 
   // Refs for accessing current state in event handlers
@@ -121,7 +120,6 @@ function App() {
       setGitStatus(status);
       // Re-fetch diff if a file is selected
       if (selectedFile) {
-        setLoadingDiff(true);
         try {
           const diff = await invoke<FileDiff>("get_file_diff", {
             repoPath: selectedDirectory,
@@ -132,8 +130,6 @@ function App() {
         } catch (err) {
           console.error("Error fetching diff:", err);
           setCurrentDiff(null);
-        } finally {
-          setLoadingDiff(false);
         }
       }
     } catch (error) {
@@ -146,7 +142,6 @@ function App() {
       setSelectedFile(file);
       if (!selectedDirectory) return;
 
-      setLoadingDiff(true);
       try {
         const diff = await invoke<FileDiff>("get_file_diff", {
           repoPath: selectedDirectory,
@@ -157,8 +152,6 @@ function App() {
       } catch (error) {
         console.error("Error fetching diff:", error);
         setCurrentDiff(null);
-      } finally {
-        setLoadingDiff(false);
       }
     },
     [selectedDirectory],
@@ -226,7 +219,7 @@ function App() {
           selectedFile={selectedFile}
           onFileSelect={handleFileSelect}
         />
-        <DiffViewer diff={currentDiff} loading={loadingDiff} />
+        <DiffViewer diff={currentDiff} />
       </div>
     </div>
   );

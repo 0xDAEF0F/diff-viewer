@@ -2,19 +2,9 @@ import type { FileDiff } from "../types/git";
 
 interface DiffViewerProps {
   diff: FileDiff | null;
-  loading: boolean;
 }
 
-export function DiffViewer({ diff, loading }: DiffViewerProps) {
-  if (loading) {
-    return (
-      <div className="diff-viewer diff-loading">
-        <div className="loading-spinner" />
-        <span>Loading diff...</span>
-      </div>
-    );
-  }
-
+export function DiffViewer({ diff }: DiffViewerProps) {
   if (!diff) {
     return (
       <div className="diff-viewer diff-empty">
