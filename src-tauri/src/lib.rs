@@ -52,16 +52,6 @@ fn stop_file_watcher(state: tauri::State<'_, WatcherState>) {
     watcher::stop_watching(&state);
 }
 
-#[tauri::command]
-fn set_auto_refresh(state: tauri::State<'_, WatcherState>, enabled: bool) {
-    state.set_enabled(enabled);
-}
-
-#[tauri::command]
-fn get_auto_refresh_enabled(state: tauri::State<'_, WatcherState>) -> bool {
-    state.is_enabled()
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -73,9 +63,7 @@ pub fn run() {
             get_git_status,
             get_file_diff,
             start_file_watcher,
-            stop_file_watcher,
-            set_auto_refresh,
-            get_auto_refresh_enabled
+            stop_file_watcher
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

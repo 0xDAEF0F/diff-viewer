@@ -15,12 +15,10 @@ function App() {
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileStatus | null>(null);
   const [currentDiff, setCurrentDiff] = useState<FileDiff | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(true);
 
   // Refs for accessing current state in event handlers
   const selectedDirectoryRef = useRef(selectedDirectory);
   const selectedFileRef = useRef(selectedFile);
-  const autoRefreshRef = useRef(autoRefresh);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -31,14 +29,10 @@ function App() {
     selectedFileRef.current = selectedFile;
   }, [selectedFile]);
 
-  useEffect(() => {
-    autoRefreshRef.current = autoRefresh;
-  }, [autoRefresh]);
-
   // Listen for file changes from the backend
   useEffect(() => {
     const unlisten = listen("file-changed", async () => {
-      if (!autoRefreshRef.current || !selectedDirectoryRef.current) return;
+      if (!selectedDirectoryRef.current) return;
 
       try {
         const status = await invoke<GitStatus>("get_git_status", {
@@ -63,15 +57,6 @@ function App() {
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, []);
-
-  const handleAutoRefreshToggle = useCallback(async (enabled: boolean) => {
-    setAutoRefresh(enabled);
-    try {
-      await invoke("set_auto_refresh", { enabled });
-    } catch (error) {
-      console.error("Error setting auto refresh:", error);
-    }
   }, []);
 
   const handleSelectDirectory = useCallback(async () => {
@@ -111,32 +96,6 @@ function App() {
     restore();
   }, []);
 
-  const handleRefresh = useCallback(async () => {
-    if (!selectedDirectory) return;
-    try {
-      const status = await invoke<GitStatus>("get_git_status", {
-        path: selectedDirectory,
-      });
-      setGitStatus(status);
-      // Re-fetch diff if a file is selected
-      if (selectedFile) {
-        try {
-          const diff = await invoke<FileDiff>("get_file_diff", {
-            repoPath: selectedDirectory,
-            filePath: selectedFile.path,
-            staged: selectedFile.staged,
-          });
-          setCurrentDiff(diff);
-        } catch (err) {
-          console.error("Error fetching diff:", err);
-          setCurrentDiff(null);
-        }
-      }
-    } catch (error) {
-      console.error("Error refreshing status:", error);
-    }
-  }, [selectedDirectory, selectedFile]);
-
   const handleFileSelect = useCallback(
     async (file: FileStatus) => {
       setSelectedFile(file);
@@ -174,9 +133,6 @@ function App() {
           repoPath={selectedDirectory}
           branch={null}
           onSelectDirectory={handleSelectDirectory}
-          onRefresh={handleRefresh}
-          autoRefresh={autoRefresh}
-          onAutoRefreshToggle={handleAutoRefreshToggle}
         />
         <div className="empty-state">
           <h2>Not a Git Repository</h2>
@@ -194,9 +150,6 @@ function App() {
           repoPath={selectedDirectory}
           branch={gitStatus.branch}
           onSelectDirectory={handleSelectDirectory}
-          onRefresh={handleRefresh}
-          autoRefresh={autoRefresh}
-          onAutoRefreshToggle={handleAutoRefreshToggle}
         />
         <EmptyState type="no-changes" />
       </div>
@@ -209,9 +162,6 @@ function App() {
         repoPath={selectedDirectory}
         branch={gitStatus.branch}
         onSelectDirectory={handleSelectDirectory}
-        onRefresh={handleRefresh}
-        autoRefresh={autoRefresh}
-        onAutoRefreshToggle={handleAutoRefreshToggle}
       />
       <div className="main-content">
         <FileList

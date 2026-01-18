@@ -1,36 +1,16 @@
 use notify_debouncer_mini::notify::{Error as NotifyError, RecommendedWatcher, RecursiveMode};
 use notify_debouncer_mini::{new_debouncer, DebouncedEvent, Debouncer};
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
 type WatcherType = Debouncer<RecommendedWatcher>;
 type DebounceResult = Result<Vec<DebouncedEvent>, NotifyError>;
 
+#[derive(Default)]
 pub struct WatcherState {
     watcher: Mutex<Option<WatcherType>>,
-    enabled: AtomicBool,
-}
-
-impl Default for WatcherState {
-    fn default() -> Self {
-        Self {
-            watcher: Mutex::new(None),
-            enabled: AtomicBool::new(true),
-        }
-    }
-}
-
-impl WatcherState {
-    pub fn is_enabled(&self) -> bool {
-        self.enabled.load(Ordering::Relaxed)
-    }
-
-    pub fn set_enabled(&self, enabled: bool) {
-        self.enabled.store(enabled, Ordering::Relaxed);
-    }
 }
 
 fn should_emit_event(path: &Path) -> bool {
@@ -53,17 +33,8 @@ pub fn start_watching(app: &AppHandle, path: &str, state: &WatcherState) -> Resu
     stop_watching(state);
 
     let app_handle = app.clone();
-    let enabled = Arc::new(AtomicBool::new(true));
-    let enabled_clone = enabled.clone();
-
-    // Track enabled state from WatcherState
-    enabled.store(state.is_enabled(), Ordering::Relaxed);
 
     let mut debouncer = new_debouncer(Duration::from_millis(300), move |result: DebounceResult| {
-        if !enabled_clone.load(Ordering::Relaxed) {
-            return;
-        }
-
         if let Ok(events) = result {
             if should_refresh(&events) {
                 let _ = app_handle.emit("file-changed", ());
