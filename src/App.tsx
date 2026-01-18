@@ -9,7 +9,9 @@ import { DiffViewer } from "./components/DiffViewer";
 import { EmptyState } from "./components/EmptyState";
 
 function App() {
-  const [selectedDirectory, setSelectedDirectory] = useState<string | null>(null);
+  const [selectedDirectory, setSelectedDirectory] = useState<string | null>(
+    null,
+  );
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileStatus | null>(null);
   const [currentDiff, setCurrentDiff] = useState<FileDiff | null>(null);
@@ -137,7 +139,7 @@ function App() {
         setLoadingDiff(false);
       }
     },
-    [selectedDirectory]
+    [selectedDirectory],
   );
 
   // No directory selected yet

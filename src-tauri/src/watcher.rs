@@ -1,14 +1,16 @@
-use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher, EventKind};
+use notify_debouncer_mini::notify::{Error as NotifyError, RecommendedWatcher, RecursiveMode};
+use notify_debouncer_mini::{new_debouncer, DebouncedEvent, Debouncer};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
-const DEBOUNCE_MS: u64 = 300;
+type WatcherType = Debouncer<RecommendedWatcher>;
+type DebounceResult = Result<Vec<DebouncedEvent>, NotifyError>;
 
 pub struct WatcherState {
-    watcher: Mutex<Option<RecommendedWatcher>>,
+    watcher: Mutex<Option<WatcherType>>,
     enabled: AtomicBool,
 }
 
@@ -42,6 +44,10 @@ fn should_emit_event(path: &Path) -> bool {
     true
 }
 
+fn should_refresh(events: &[DebouncedEvent]) -> bool {
+    events.iter().any(|e| should_emit_event(&e.path))
+}
+
 pub fn start_watching(app: &AppHandle, path: &str, state: &WatcherState) -> Result<(), String> {
     // Stop any existing watcher first
     stop_watching(state);
@@ -53,50 +59,26 @@ pub fn start_watching(app: &AppHandle, path: &str, state: &WatcherState) -> Resu
     // Track enabled state from WatcherState
     enabled.store(state.is_enabled(), Ordering::Relaxed);
 
-    // Debounce tracking
-    let last_emit = Arc::new(Mutex::new(Instant::now() - Duration::from_millis(DEBOUNCE_MS)));
+    let mut debouncer = new_debouncer(Duration::from_millis(300), move |result: DebounceResult| {
+        if !enabled_clone.load(Ordering::Relaxed) {
+            return;
+        }
 
-    let mut watcher = RecommendedWatcher::new(
-        move |result: Result<notify::Event, notify::Error>| {
-            if !enabled_clone.load(Ordering::Relaxed) {
-                return;
+        if let Ok(events) = result {
+            if should_refresh(&events) {
+                let _ = app_handle.emit("file-changed", ());
             }
-
-            if let Ok(event) = result {
-                // Only trigger on modify, create, remove events
-                let is_relevant = matches!(
-                    event.kind,
-                    EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_)
-                );
-
-                if !is_relevant {
-                    return;
-                }
-
-                // Check if any path should trigger a refresh
-                let should_refresh = event.paths.iter().any(|p| should_emit_event(p));
-
-                if should_refresh {
-                    // Debounce: only emit if enough time has passed
-                    let mut last = last_emit.lock().unwrap();
-                    let now = Instant::now();
-                    if now.duration_since(*last) >= Duration::from_millis(DEBOUNCE_MS) {
-                        *last = now;
-                        let _ = app_handle.emit("file-changed", ());
-                    }
-                }
-            }
-        },
-        Config::default(),
-    )
+        }
+    })
     .map_err(|e| format!("Failed to create watcher: {}", e))?;
 
-    watcher
+    debouncer
+        .watcher()
         .watch(Path::new(path), RecursiveMode::Recursive)
         .map_err(|e| format!("Failed to watch path: {}", e))?;
 
     let mut guard = state.watcher.lock().map_err(|e| e.to_string())?;
-    *guard = Some(watcher);
+    *guard = Some(debouncer);
 
     Ok(())
 }
