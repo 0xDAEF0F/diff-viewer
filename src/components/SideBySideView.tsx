@@ -1,4 +1,5 @@
 import type { DiffLine, SideBySideLine } from "../types/diff";
+import { HighlightedLine } from "./HighlightedLine";
 
 interface SideBySideViewProps {
   lines: DiffLine[];
@@ -72,13 +73,16 @@ function renderCell(line?: DiffLine, isLeft?: boolean) {
           ? "bg-[var(--bg-tertiary)]"
           : "";
   const textClass =
+    line.type === "meta"
+      ? "text-[var(--text-secondary)] italic"
+      : "";
+
+  const fallbackTextClass =
     line.type === "added"
       ? "text-green-400"
       : line.type === "deleted"
         ? "text-red-400"
-        : line.type === "meta"
-          ? "text-[var(--text-secondary)] italic"
-          : "text-[var(--text-primary)]";
+        : "text-[var(--text-primary)]";
 
   return (
     <>
@@ -88,7 +92,11 @@ function renderCell(line?: DiffLine, isLeft?: boolean) {
         {lineNum ?? ""}
       </td>
       <td className={`pl-2 whitespace-pre ${bgClass} ${textClass}`}>
-        {line.content}
+        {line.tokens ? (
+          <HighlightedLine tokens={line.tokens} />
+        ) : (
+          <span className={fallbackTextClass}>{line.content}</span>
+        )}
       </td>
     </>
   );

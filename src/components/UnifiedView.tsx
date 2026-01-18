@@ -1,4 +1,5 @@
 import type { DiffLine } from "../types/diff";
+import { HighlightedLine } from "./HighlightedLine";
 
 interface UnifiedViewProps {
   lines: DiffLine[];
@@ -36,16 +37,26 @@ export function UnifiedView({ lines }: UnifiedViewProps) {
             </td>
             <td
               className={`pl-2 whitespace-pre ${
-                line.type === "added"
-                  ? "text-green-400"
-                  : line.type === "deleted"
-                    ? "text-red-400"
-                    : line.type === "meta"
-                      ? "text-[var(--text-secondary)] italic"
-                      : "text-[var(--text-primary)]"
+                line.type === "meta"
+                  ? "text-[var(--text-secondary)] italic"
+                  : ""
               }`}
             >
-              {line.content}
+              {line.tokens ? (
+                <HighlightedLine tokens={line.tokens} />
+              ) : (
+                <span
+                  className={
+                    line.type === "added"
+                      ? "text-green-400"
+                      : line.type === "deleted"
+                        ? "text-red-400"
+                        : "text-[var(--text-primary)]"
+                  }
+                >
+                  {line.content}
+                </span>
+              )}
             </td>
           </tr>
         ))}

@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { FileDiff } from "../types/git";
+import type { DiffLine } from "../types/diff";
 import { parseDiff } from "../utils/parseDiff";
+import { getLanguageFromPath } from "../utils/languageMap";
+import { highlightLines, initHighlighter } from "../utils/highlighter";
 import { UnifiedView } from "./UnifiedView";
 import { SideBySideView } from "./SideBySideView";
 
@@ -10,6 +13,53 @@ interface DiffViewerProps {
 
 export function DiffViewer({ diff }: DiffViewerProps) {
   const [viewMode, setViewMode] = useState<"unified" | "split">("unified");
+  const [highlightedLines, setHighlightedLines] = useState<DiffLine[]>([]);
+  const [isHighlighting, setIsHighlighting] = useState(false);
+
+  const parsedLines = useMemo(() => {
+    if (!diff?.diff) return [];
+    return parseDiff(diff.diff);
+  }, [diff?.diff]);
+
+  const language = useMemo(() => {
+    if (!diff?.path) return null;
+    return getLanguageFromPath(diff.path);
+  }, [diff?.path]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function applyHighlighting() {
+      if (parsedLines.length === 0 || !language) {
+        setHighlightedLines(parsedLines);
+        return;
+      }
+
+      setIsHighlighting(true);
+      try {
+        await initHighlighter();
+        const highlighted = await highlightLines(parsedLines, language);
+        if (!cancelled) {
+          setHighlightedLines(highlighted);
+        }
+      } catch (error) {
+        console.error("Highlighting error:", error);
+        if (!cancelled) {
+          setHighlightedLines(parsedLines);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsHighlighting(false);
+        }
+      }
+    }
+
+    applyHighlighting();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [parsedLines, language]);
 
   if (!diff) {
     return (
@@ -27,7 +77,7 @@ export function DiffViewer({ diff }: DiffViewerProps) {
     );
   }
 
-  const lines = parseDiff(diff.diff);
+  const linesToRender = isHighlighting ? parsedLines : highlightedLines;
 
   return (
     <div className="diff-viewer flex flex-col h-full">
@@ -57,9 +107,9 @@ export function DiffViewer({ diff }: DiffViewerProps) {
       </div>
       <div className="overflow-auto flex-1 p-2">
         {viewMode === "unified" ? (
-          <UnifiedView lines={lines} />
+          <UnifiedView lines={linesToRender} />
         ) : (
-          <SideBySideView lines={lines} />
+          <SideBySideView lines={linesToRender} />
         )}
       </div>
     </div>

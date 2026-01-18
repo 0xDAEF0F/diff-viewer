@@ -1,3 +1,5 @@
+import type { Token } from "./highlight";
+
 export type LineType = "added" | "deleted" | "context" | "meta";
 
 export interface DiffLine {
@@ -5,6 +7,7 @@ export interface DiffLine {
   content: string;
   oldLine?: number;
   newLine?: number;
+  tokens?: Token[];
 }
 
 export interface SideBySideLine {
